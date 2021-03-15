@@ -1,3 +1,4 @@
+import { User } from './../auth/user.entity';
 import { WalletRepository } from './wallets.repository';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
@@ -6,6 +7,7 @@ import { GetWalletsFilterDTO } from './dto/get-wallets-filter.dto';
 import { Wallet } from './wallets.entity';
 import { WalletStatus } from './wallets.enum';
 import { InjectRepository } from '@nestjs/typeorm';
+import { DeleteResult } from 'typeorm';
 
 @Injectable()
 export class WalletsService {
@@ -13,45 +15,43 @@ export class WalletsService {
     @InjectRepository(WalletRepository)
     private walletRepository: WalletRepository,
   ) {}
-  // getAllWallets(): Wallet[] {
-  //   return this.wallets;
-  // }
-  // getWalletsByFilter(getWalletsByFilterDTO: GetWalletsFilterDTO): Wallet[] {
-  //   const { status, walletType, title } = getWalletsByFilterDTO;
-  //   let wallets = this.getAllWallets();
-  //   if (status) {
-  //     wallets = wallets.filter((w) => w.status === status);
-  //     console.log(wallets, status);
-  //   }
-  //   if (title) {
-  //     wallets = wallets.filter(
-  //       (w) => w.title.includes(title) || w.title.includes(title),
-  //     );
-  //     console.log(wallets);
-  //   }
-  //   if (walletType) {
-  //     wallets = wallets.filter((w) => w.walletType === walletType);
-  //   }
-  //   console.log(wallets);
-  //   return wallets;
-  // }
-  async createWallet(createWalletDTO: CreateWalletDTO): Promise<Wallet> {
-    return this.walletRepository.createwallet(createWalletDTO);
+  async getWallets(
+    filterDTO: GetWalletsFilterDTO,
+    user: User,
+  ): Promise<Wallet[]> {
+    return this.walletRepository.getWallets(filterDTO, user);
   }
-  async getWalletById(walletId: number): Promise<Wallet> {
-    const wallet = await this.walletRepository.findOne(walletId);
-    if (!wallet)
+
+  async createWallet(
+    createWalletDTO: CreateWalletDTO,
+    user: User,
+  ): Promise<Wallet> {
+    return this.walletRepository.createwallet(createWalletDTO, user);
+  }
+  async getWalletById(walletId: number, user: User): Promise<Wallet> {
+    const found = await this.walletRepository.findOne({
+      where: { id: walletId, userId: user.id },
+    });
+    if (!found)
       throw new NotFoundException(`No wallet with id ${walletId} found`);
-    return wallet;
+    return found;
   }
-  // async deleteWallet(walletId: string): Promise<void> {
-  //   const found = await this.getWalletById(walletId);
-  //   this.wallets = await this.wallets.filter((w) => w.id !== found['id']);
-  // }
-  // async updateWallet(walletId: string, status: WalletStatus): Promise<Wallet> {
-  //   const existingWallet = await this.wallets.find((w) => w.id === walletId);
-  //   if (!existingWallet) throw new Error('No wallet with this is found');
-  //   existingWallet.status = status;
-  //   return existingWallet;
-  // }
+  async deleteWallet(walletId: number, user: User): Promise<DeleteResult> {
+    const affected: DeleteResult = await this.walletRepository.delete({id:walletId, userId:user.id});
+    if (affected.affected === 0) {
+      throw new NotFoundException(`No wallet with id ${walletId} found`);
+    }
+
+    return affected.raw;
+  }
+  async updateWallet(
+    walletId: number,
+    status: WalletStatus,
+    user: User,
+  ): Promise<Wallet> {
+    const existingWallet = await this.getWalletById(walletId, user);
+    existingWallet.status = status;
+    await existingWallet.save();
+    return existingWallet;
+  }
 }

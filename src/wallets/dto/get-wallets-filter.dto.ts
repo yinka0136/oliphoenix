@@ -4,7 +4,7 @@ import { WalletStatus, WalletType } from '../wallets.enum';
 export class GetWalletsFilterDTO {
   @IsOptional()
   @IsNotEmpty()
-  title: string;
+  search: string;
   @IsOptional()
   @IsIn([WalletStatus.DONE, WalletStatus.IN_PROGRESS, WalletStatus.OPEN])
   status: WalletStatus;
